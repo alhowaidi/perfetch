@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -25,6 +25,7 @@
  * @author Andrea Tosatto
  * @author Davide Pesavento
  * @author Weiwei Liu
+ * @author Chavoosh Ghasemi
  */
 
 #include "pipeline-interests.hpp"
@@ -34,9 +35,12 @@ namespace chunks {
 
 PipelineInterests::PipelineInterests(Face& face)
   : m_face(face)
-  , m_lastSegmentNo(0)
-  , m_excludedSegmentNo(0)
   , m_hasFinalBlockId(false)
+  , m_lastSegmentNo(0)
+  , m_nReceived(0)
+  , m_receivedSize(0)
+  , m_nextSegmentNo(0)
+  , m_excludedSegmentNo(0)
   , m_isStopping(false)
 {
 }
@@ -44,18 +48,23 @@ PipelineInterests::PipelineInterests(Face& face)
 PipelineInterests::~PipelineInterests() = default;
 
 void
-PipelineInterests::run(const Data& data, DataCallback onData, FailureCallback onFailure)
+PipelineInterests::run(const Data& data, DataCallback dataCb, FailureCallback failureCb)
 {
-  BOOST_ASSERT(onData != nullptr);
-  m_onData = std::move(onData);
-  m_onFailure = std::move(onFailure);
+  BOOST_ASSERT(dataCb != nullptr);
+  m_onData = std::move(dataCb);
+  m_onFailure = std::move(failureCb);
   m_prefix = data.getName().getPrefix(-1);
-  m_excludedSegmentNo = data.getName()[-1].toSegment();
+  m_excludedSegmentNo = getSegmentFromPacket(data);
 
   if (!data.getFinalBlockId().empty()) {
     m_lastSegmentNo = data.getFinalBlockId().toSegment();
     m_hasFinalBlockId = true;
   }
+
+  onData(data);
+
+  // record the start time of the pipeline
+  m_startTime = time::steady_clock::now();
 
   doRun();
 }
@@ -70,6 +79,25 @@ PipelineInterests::cancel()
   doCancel();
 }
 
+uint64_t
+PipelineInterests::getNextSegmentNo()
+{
+  // skip the excluded segment
+  if (m_nextSegmentNo == m_excludedSegmentNo)
+    m_nextSegmentNo++;
+
+  return m_nextSegmentNo++;
+}
+
+void
+PipelineInterests::onData(const Data& data)
+{
+  m_nReceived++;
+  m_receivedSize += data.getContent().value_size();
+
+  m_onData(data);
+}
+
 void
 PipelineInterests::onFailure(const std::string& reason)
 {
@@ -80,6 +108,43 @@ PipelineInterests::onFailure(const std::string& reason)
 
   if (m_onFailure)
     m_face.getIoService().post([this, reason] { m_onFailure(reason); });
+}
+
+std::string
+PipelineInterests::formatThroughput(double throughput)
+{
+  int pow = 0;
+  while (throughput >= 1000.0 && pow < 4) {
+    throughput /= 1000.0;
+    pow++;
+  }
+  switch (pow) {
+    case 0:
+      return to_string(throughput) + " bit/s";
+    case 1:
+      return to_string(throughput) + " kbit/s";
+    case 2:
+      return to_string(throughput) + " Mbit/s";
+    case 3:
+      return to_string(throughput) + " Gbit/s";
+    case 4:
+      return to_string(throughput) + " Tbit/s";
+  }
+  return "";
+}
+
+void
+PipelineInterests::printSummary() const
+{
+  using namespace ndn::time;
+  duration<double, milliseconds::period> timeElapsed = steady_clock::now() - getStartTime();
+  double throughput = (8 * m_receivedSize * 1000) / timeElapsed.count();
+
+  std::cerr << "\nAll segments have been received.\n"
+            << "Time elapsed: " << timeElapsed << "\n"
+            << "Total # of segments received: " << m_nReceived << "\n"
+            << "Total size: " << static_cast<double>(m_receivedSize) / 1000 << "kB" << "\n"
+            << "Goodput: " << formatThroughput(throughput) << "\n";
 }
 
 } // namespace chunks

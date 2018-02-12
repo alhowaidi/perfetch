@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -31,16 +31,16 @@
 namespace ndn {
 namespace chunks {
 
-DiscoverVersion::DiscoverVersion(const Name& prefix, Face& face, const Options& options)
-  : Options(options)
-  , m_prefix(prefix)
+DiscoverVersion::DiscoverVersion(const Name& prefix, Face& face)
+  : m_prefix(prefix)
   , m_face(face)
 {
 }
 
+DiscoverVersion::~DiscoverVersion() = default;
+
 void
-DiscoverVersion::expressInterest(const Interest& interest, int maxRetriesNack,
-                                 int maxRetriesTimeout)
+DiscoverVersion::expressInterest(const Interest& interest, int maxRetriesNack, int maxRetriesTimeout)
 {
   fetcher = DataFetcher::fetch(m_face, interest, maxRetriesNack, maxRetriesTimeout,
                                bind(&DiscoverVersion::handleData, this, _1, _2),

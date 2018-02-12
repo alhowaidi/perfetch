@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017,  Regents of the University of California,
+ *                           Colorado State University,
+ *                           University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -24,7 +24,11 @@
  * @author Steve DiBenedetto
  * @author Andrea Tosatto
  * @author Davide Pesavento
+ * @author Chavoosh Ghasemi
  */
+
+#ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_FIXED_WINDOW_HPP
+#define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_FIXED_WINDOW_HPP
 
 #include "options.hpp"
 #include "pipeline-interests.hpp"
@@ -81,7 +85,6 @@ private:
    *
    * Starts a fixed-window pipeline with size equal to m_options.maxPipelineSize. The pipeline
    * will fetch every segment until the last segment is successfully received or an error occurs.
-   * The segment with segment number equal to m_excludedSegmentNo will not be fetched.
    */
   void
   doRun() final;
@@ -106,7 +109,7 @@ private:
 private:
   const Options m_options;
   std::vector<std::pair<shared_ptr<DataFetcher>, uint64_t>> m_segmentFetchers;
-  uint64_t m_nextSegmentNo;
+
   /**
    * true if one or more segment fetchers encountered an error; if m_hasFinalBlockId
    * is false, this is usually not a fatal error for the pipeline
@@ -116,3 +119,5 @@ private:
 
 } // namespace chunks
 } // namespace ndn
+
+#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_FIXED_WINDOW_HPP

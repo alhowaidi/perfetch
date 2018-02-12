@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -30,7 +30,7 @@
 namespace ndn {
 namespace chunks {
 
-Consumer::Consumer(Validator& validator, bool isVerbose, std::string& fn, std::ofstream& os)
+Consumer::Consumer(security::v2::Validator& validator, bool isVerbose, std::string& fn, std::ofstream& os)
   : m_validator(validator)
   , m_outputStream(os)
   , m_nextToPrint(0)
@@ -47,50 +47,39 @@ Consumer::run(unique_ptr<DiscoverVersion> discover, unique_ptr<PipelineInterests
   m_nextToPrint = 0;
   m_bufferedData.clear();
 
-  m_discover->onDiscoverySuccess.connect(bind(&Consumer::startPipeline, this, _1));
-  m_discover->onDiscoveryFailure.connect(bind(&Consumer::onFailure, this, _1));
+  m_discover->onDiscoverySuccess.connect([this] (const Data& data) {
+    m_pipeline->run(data,
+      [this] (const Data& data) { handleData(data); },
+      [] (const std::string& msg) { BOOST_THROW_EXCEPTION(std::runtime_error(msg)); });
+  });
+  m_discover->onDiscoveryFailure.connect([] (const std::string& msg) {
+    BOOST_THROW_EXCEPTION(std::runtime_error(msg));
+  });
   m_discover->run();
 }
 
 void
-Consumer::startPipeline(const Data& data)
+Consumer::handleData(const Data& data)
 {
+  auto dataPtr = data.shared_from_this();
+
   m_validator.validate(data,
-                       bind(&Consumer::onDataValidated, this, _1),
-                       bind(&Consumer::onFailure, this, _2));
+    [this, dataPtr] (const Data& data) {
+      if (data.getContentType() == ndn::tlv::ContentType_Nack) {
+        if (m_isVerbose) {
+          std::cerr << "Application level NACK: " << data << std::endl;
+        }
+        m_pipeline->cancel();
+        BOOST_THROW_EXCEPTION(ApplicationNackError(data));
+      }
 
-  m_pipeline->run(data,
-                  bind(&Consumer::onData, this, _1, _2),
-                  bind(&Consumer::onFailure, this, _1));
-}
-
-void
-Consumer::onData(const Interest& interest, const Data& data)
-{
-  m_validator.validate(data,
-                       bind(&Consumer::onDataValidated, this, _1),
-                       bind(&Consumer::onFailure, this, _2));
-}
-
-void
-Consumer::onDataValidated(shared_ptr<const Data> data)
-{
-  if (data->getContentType() == ndn::tlv::ContentType_Nack) {
-    if (m_isVerbose)
-      std::cerr << "Application level NACK: " << *data << std::endl;
-
-    m_pipeline->cancel();
-    throw ApplicationNackError(*data);
-  }
-
-  m_bufferedData[data->getName()[-1].toSegment()] = data;
-  writeInOrderData();
-}
-
-void
-Consumer::onFailure(const std::string& reason)
-{
-  throw std::runtime_error(reason);
+      // 'data' passed to callback comes from DataValidationState and was not created with make_shared
+      m_bufferedData[getSegmentFromPacket(data)] = dataPtr;
+      writeInOrderData();
+    },
+    [] (const Data&, const security::v2::ValidationError& error) {
+      BOOST_THROW_EXCEPTION(DataValidationError(error));
+    });
 }
 
 void
@@ -100,14 +89,7 @@ Consumer::writeInOrderData()
        it != m_bufferedData.end() && it->first == m_nextToPrint;
        it = m_bufferedData.erase(it), ++m_nextToPrint) {
     const Block& content = it->second->getContent();
-//std::cout << " in writing data : " << std::endl;
-
-	//std::ofstream m_outputStream;
-		//std::cerr << "file name is " + fileName << std::endl;
-//	if(!m_outputStream.is_open())
-//		m_outputStream.open (fileName, std::ios::out | std::ios::app );
-//    m_outputStream.write(reinterpret_cast<const char*>(content.value()), content.value_size());
-//    m_outputStream.close();
+  //  m_outputStream.write(reinterpret_cast<const char*>(content.value()), content.value_size());
   }
 }
 

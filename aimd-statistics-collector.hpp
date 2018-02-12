@@ -1,4 +1,3 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
  * Copyright (c) 2016,  Regents of the University of California,
  *                      Colorado State University,
@@ -20,33 +19,35 @@
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  *
- * @author Wentao Shang
- * @author Steve DiBenedetto
- * @author Andrea Tosatto
- * @author Davide Pesavento
  * @author Weiwei Liu
  */
 
-#include <string>
-#ifndef NDNCATCHUNKS_HPP
-#define NDNCATCHUNKS_HPP
+#ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
+#define NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
 
+#include "pipeline-interests-aimd.hpp"
+#include "aimd-rtt-estimator.hpp"
 
 namespace ndn {
 namespace chunks {
+namespace aimd {
 
-
-class ndnChunks {
-
+/**
+ * @brief Statistics collector for AIMD pipeline
+ */
+class StatisticsCollector : noncopyable
+{
 public:
-ndnChunks(){};
+  StatisticsCollector(PipelineInterestsAimd& pipeline, RttEstimator& rttEstimator,
+                      std::ostream& osCwnd, std::ostream& osRtt);
 
-int startChunk(std::string name);//, std::string pathName);
-
+private:
+  std::ostream& m_osCwnd;
+  std::ostream& m_osRtt;
 };
 
+} // namespace aimd
 } // namespace chunks
 } // namespace ndn
 
-
-#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_NDNCATCHUNKS_HPP
+#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP

@@ -1,8 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+ * Copyright (c) 2014-2015,  Arizona Board of Regents.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -17,36 +15,21 @@
  *
  * You should have received a copy of the GNU General Public License along with
  * ndn-tools, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
- *
- * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
- *
- * @author Wentao Shang
- * @author Steve DiBenedetto
- * @author Andrea Tosatto
- * @author Davide Pesavento
- * @author Weiwei Liu
  */
 
-#include <string>
-#ifndef NDNCATCHUNKS_HPP
-#define NDNCATCHUNKS_HPP
+#ifndef NDN_TOOLS_CORE_VERSION_HPP
+#define NDN_TOOLS_CORE_VERSION_HPP
 
+#include "common.hpp"
 
 namespace ndn {
-namespace chunks {
+namespace tools {
 
+/** \brief version of ndn-tools
+ */
+extern const char VERSION[];
 
-class ndnChunks {
-
-public:
-ndnChunks(){};
-
-int startChunk(std::string name);//, std::string pathName);
-
-};
-
-} // namespace chunks
+} // namespace tools
 } // namespace ndn
 
-
-#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_NDNCATCHUNKS_HPP
+#endif // NDN_TOOLS_CORE_VERSION_HPP

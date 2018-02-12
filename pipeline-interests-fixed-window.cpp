@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -24,6 +24,7 @@
  * @author Steve DiBenedetto
  * @author Andrea Tosatto
  * @author Davide Pesavento
+ * @author Chavoosh Ghasemi
  */
 
 #include "pipeline-interests-fixed-window.hpp"
@@ -35,7 +36,6 @@ namespace chunks {
 PipelineInterestsFixedWindow::PipelineInterestsFixedWindow(Face& face, const Options& options)
   : PipelineInterests(face)
   , m_options(options)
-  , m_nextSegmentNo(0)
   , m_hasFailure(false)
 {
   m_segmentFetchers.resize(m_options.maxPipelineSize);
@@ -70,17 +70,15 @@ PipelineInterestsFixedWindow::fetchNextSegment(std::size_t pipeNo)
     return false;
   }
 
-  if (m_nextSegmentNo == m_excludedSegmentNo)
-    m_nextSegmentNo++;
-
-  if (m_hasFinalBlockId && m_nextSegmentNo > m_lastSegmentNo)
-   return false;
+  uint64_t nextSegmentNo = getNextSegmentNo();
+  if (m_hasFinalBlockId && nextSegmentNo > m_lastSegmentNo)
+    return false;
 
   // send interest for next segment
   if (m_options.isVerbose)
-    std::cerr << "Requesting segment #" << m_nextSegmentNo << std::endl;
+    std::cerr << "Requesting segment #" << nextSegmentNo << std::endl;
 
-  Interest interest(Name(m_prefix).appendSegment(m_nextSegmentNo));
+  Interest interest(Name(m_prefix).appendSegment(nextSegmentNo));
   interest.setInterestLifetime(m_options.interestLifetime);
   interest.setMustBeFresh(m_options.mustBeFresh);
   interest.setMaxSuffixComponents(1);
@@ -94,8 +92,7 @@ PipelineInterestsFixedWindow::fetchNextSegment(std::size_t pipeNo)
                                     m_options.isVerbose);
 
   BOOST_ASSERT(!m_segmentFetchers[pipeNo].first || !m_segmentFetchers[pipeNo].first->isRunning());
-  m_segmentFetchers[pipeNo] = make_pair(fetcher, m_nextSegmentNo);
-  m_nextSegmentNo++;
+  m_segmentFetchers[pipeNo] = make_pair(fetcher, nextSegmentNo);
 
   return true;
 }
@@ -120,9 +117,9 @@ PipelineInterestsFixedWindow::handleData(const Interest& interest, const Data& d
   BOOST_ASSERT(data.getName().equals(interest.getName()));
 
   if (m_options.isVerbose)
-    std::cerr << "Received segment #" << data.getName()[-1].toSegment() << std::endl;
+    std::cerr << "Received segment #" << getSegmentFromPacket(data) << std::endl;
 
-  onData(interest, data);
+  onData(data);
 
   if (!m_hasFinalBlockId && !data.getFinalBlockId().empty()) {
     m_lastSegmentNo = data.getFinalBlockId().toSegment();
@@ -143,7 +140,16 @@ PipelineInterestsFixedWindow::handleData(const Interest& interest, const Data& d
     }
   }
 
-  fetchNextSegment(pipeNo);
+  BOOST_ASSERT(m_nReceived > 0);
+  if (m_hasFinalBlockId &&
+      static_cast<uint64_t>(m_nReceived - 1) >= m_lastSegmentNo) { // all segments have been received
+    if (m_options.isVerbose) {
+      printSummary();
+    }
+  }
+  else {
+    fetchNextSegment(pipeNo);
+  }
 }
 
 void PipelineInterestsFixedWindow::handleFail(const std::string& reason, std::size_t pipeNo)

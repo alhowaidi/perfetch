@@ -27,7 +27,7 @@
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_DATA_FETCHER_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_DATA_FETCHER_HPP
 
-#include "common.hpp"
+#include "core/common.hpp"
 
 namespace ndn {
 namespace chunks {

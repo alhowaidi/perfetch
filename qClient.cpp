@@ -29,7 +29,7 @@ int main ()
 //nanosleep(&tim, NULL);
 
 
- std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+ std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
       message_queue mq(open_only ,"message_queue") ;
 
       size_t const max_msg_size = 0x100;

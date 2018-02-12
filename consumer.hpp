@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -31,7 +31,8 @@
 #include "discover-version.hpp"
 #include "pipeline-interests.hpp"
 
-#include <ndn-cxx/security/validator.hpp>
+#include <ndn-cxx/security/v2/validation-error.hpp>
+#include <ndn-cxx/security/v2/validator.hpp>
 
 namespace ndn {
 namespace chunks {
@@ -56,11 +57,22 @@ public:
     }
   };
 
+  class DataValidationError : public std::runtime_error
+  {
+  public:
+    explicit
+    DataValidationError(const security::v2::ValidationError& error)
+      : std::runtime_error(boost::lexical_cast<std::string>(error))
+    {
+    }
+  };
+
   /**
    * @brief Create the consumer
    */
-  //Consumer(Validator& validator, bool isVerbose, std::ofstream& os);
-  Consumer(Validator& validator, bool isVerbose, std::string& fileName, std::ofstream& os);
+//  Consumer(security::v2::Validator& validator, bool isVerbose, std::ostream& os = std::cout);
+  Consumer(security::v2::Validator& validator, bool isVerbose, std::string& fileName, std::ofstream& os);
+
   /**
    * @brief Run the consumer
    */
@@ -69,30 +81,20 @@ public:
 
 private:
   void
-  startPipeline(const Data& data);
-
-  void
-  onData(const Interest& interest, const Data& data);
-
-  void
-  onDataValidated(shared_ptr<const Data> data);
-
-  void
-  onFailure(const std::string& reason);
+  handleData(const Data& data);
 
 PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void
   writeInOrderData();
 
 private:
-  Validator& m_validator;
+  security::v2::Validator& m_validator;
   std::ofstream& m_outputStream;
   unique_ptr<DiscoverVersion> m_discover;
   unique_ptr<PipelineInterests> m_pipeline;
   uint64_t m_nextToPrint;
   bool m_isVerbose;
-  std::string fileName;
-
+ std::string fileName;
 PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   std::map<uint64_t, shared_ptr<const Data>> m_bufferedData;
 };

@@ -1,8 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**
- * Copyright (c) 2016,  Regents of the University of California,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University.
+/*
+ * Copyright (c) 2016-2017, Regents of the University of California,
+ *                          Colorado State University,
+ *                          University Pierre & Marie Curie, Sorbonne University.
  *
  * This file is part of ndn-tools (Named Data Networking Essential Tools).
  * See AUTHORS.md for complete list of ndn-tools authors and contributors.
@@ -25,12 +25,13 @@
  * @author Andrea Tosatto
  * @author Davide Pesavento
  * @author Weiwei Liu
+ * @author Chavoosh Ghasemi
  */
 
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_HPP
 
-#include "common.hpp"
+#include "core/common.hpp"
 
 namespace ndn {
 namespace chunks {
@@ -48,14 +49,14 @@ namespace chunks {
 class PipelineInterests
 {
 public:
-  typedef function<void(const std::string& reason)> FailureCallback;
+  using DataCallback = function<void(const Data&)>;
+  using FailureCallback = function<void(const std::string& reason)>;
 
-public:
   /**
    * @brief create a PipelineInterests service
    *
-   * Configures the pipelining service without specifying the retrieval namespace. After this
-   * configuration the method run must be called to start the Pipeline.
+   * Configures the pipelining service without specifying the retrieval namespace.
+   * After construction, the method run() must be called in order to start the pipeline.
    */
   explicit
   PipelineInterests(Face& face);
@@ -80,17 +81,30 @@ public:
   cancel();
 
 protected:
+  time::steady_clock::TimePoint
+  getStartTime() const
+  {
+    return m_startTime;
+  }
+
   bool
   isStopping() const
   {
     return m_isStopping;
   }
 
+  /**
+   * @return next segment number to retrieve
+   * @post m_nextSegmentNo == return-value + 1
+   */
+  uint64_t
+  getNextSegmentNo();
+
+  /**
+   * @brief subclasses must call this method to notify successful retrieval of a segment
+   */
   void
-  onData(const Interest& interest, const Data& data) const
-  {
-    m_onData(interest, data);
-  }
+  onData(const Data& data);
 
   /**
    * @brief subclasses can call this method to signal an unrecoverable failure
@@ -98,13 +112,27 @@ protected:
   void
   onFailure(const std::string& reason);
 
+  /**
+   * @brief print statistics about this fetching session
+   *
+   * Subclasses can override this method to print additional stats or change the summary format
+   */
+  virtual void
+  printSummary() const;
+
+  /**
+   * @param throughput The throughput in bits/s
+   */
+  static std::string
+  formatThroughput(double throughput);
+
 private:
   /**
    * @brief perform subclass-specific operations to fetch all the segments
    *
    * When overriding this function, at a minimum, the subclass should implement the retrieving
-   * of all the segments. Segment m_excludedSegmentNo can be skipped. Subclass must guarantee
-   * that onData is called at least once for every segment that is fetched successfully.
+   * of all the segments. Subclass must guarantee that `onData` is called once for every
+   * segment that is fetched successfully.
    *
    * @note m_lastSegmentNo contains a valid value only if m_hasFinalBlockId is true.
    */
@@ -117,15 +145,28 @@ private:
 protected:
   Face& m_face;
   Name m_prefix;
-  uint64_t m_lastSegmentNo;
-  uint64_t m_excludedSegmentNo;
-  bool m_hasFinalBlockId; ///< true if the last segment number is known
+
+PUBLIC_WITH_TESTS_ELSE_PROTECTED:
+  bool m_hasFinalBlockId;   ///< true if the last segment number is known
+  uint64_t m_lastSegmentNo; ///< valid only if m_hasFinalBlockId == true
+  int64_t m_nReceived;      ///< number of segments received
+  size_t m_receivedSize;    ///< size of received data in bytes
 
 private:
   DataCallback m_onData;
   FailureCallback m_onFailure;
+  uint64_t m_nextSegmentNo;
+  uint64_t m_excludedSegmentNo;
+  time::steady_clock::TimePoint m_startTime;
   bool m_isStopping;
 };
+
+template<typename Packet>
+uint64_t
+getSegmentFromPacket(const Packet& packet)
+{
+  return packet.getName().at(-1).toSegment();
+}
 
 } // namespace chunks
 } // namespace ndn

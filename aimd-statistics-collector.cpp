@@ -1,4 +1,3 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
  * Copyright (c) 2016,  Regents of the University of California,
  *                      Colorado State University,
@@ -20,33 +19,36 @@
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  *
- * @author Wentao Shang
- * @author Steve DiBenedetto
- * @author Andrea Tosatto
- * @author Davide Pesavento
  * @author Weiwei Liu
  */
 
-#include <string>
-#ifndef NDNCATCHUNKS_HPP
-#define NDNCATCHUNKS_HPP
-
+#include "aimd-statistics-collector.hpp"
 
 namespace ndn {
 namespace chunks {
+namespace aimd {
 
+StatisticsCollector::StatisticsCollector(PipelineInterestsAimd& pipeline, RttEstimator& rttEstimator,
+                                         std::ostream& osCwnd, std::ostream& osRtt)
+  : m_osCwnd(osCwnd)
+  , m_osRtt(osRtt)
+{
+  m_osCwnd << "time\tcwndsize\n";
+  m_osRtt  << "segment\trtt\trttvar\tsrtt\trto\n";
+  pipeline.afterCwndChange.connect(
+    [this] (Milliseconds timeElapsed, double cwnd) {
+      m_osCwnd << timeElapsed.count() / 1000 << '\t' << cwnd << '\n';
+    });
+  rttEstimator.afterRttMeasurement.connect(
+    [this] (const RttRtoSample& rttSample) {
+      m_osRtt << rttSample.segNo << '\t'
+              << rttSample.rtt.count() << '\t'
+              << rttSample.rttVar.count() << '\t'
+              << rttSample.sRtt.count() << '\t'
+              << rttSample.rto.count() << '\n';
+    });
+}
 
-class ndnChunks {
-
-public:
-ndnChunks(){};
-
-int startChunk(std::string name);//, std::string pathName);
-
-};
-
+} // namespace aimd
 } // namespace chunks
 } // namespace ndn
-
-
-#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_NDNCATCHUNKS_HPP
